@@ -1,0 +1,12 @@
+name: rpc_example_ws
+
+channels:
+    - conda-forge
+
+dependencies:
+   - python=3.6
+   - pip=19.0.1
+   - compas=0.7.2
+   - numpy
+   - pip:
+     - pycddlib

@@ -99,7 +99,7 @@ Great - we are almost there! Now type `python` in your Anaconda Prompt, and test
 
 ::
 
-    >>> import compas
+    >>> import compas_rpc_example
 
 If that doesn't fail, you're good to go! Exit the python interpreter (either typing `exit()` or pressing `CTRL+Z` followed by `Enter`).
 
@@ -147,7 +147,9 @@ have to do the following **once**:
 2. ``cd`` to the folder of your package (where ``setup.py`` lives) and
    type in ``pip install -e .``. This will install the package
    to your conda environment using the ``develop`` mode,
-   which allows your change to be used immediately.
+   which allows your change to be used immediately. Read more about ``-e`` flag
+   in the `editable install <https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs>`_
+   section in pip's doc.
 3. Run ``python -m compas_rhino.install -p <package_name>``
 
 Restart Rhino, and you should be good to go!

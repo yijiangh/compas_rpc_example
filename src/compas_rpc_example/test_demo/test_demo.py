@@ -1,5 +1,10 @@
+import numpy as np
 
 def test_connect():
     print('haha')
-    return 1
+    print('tjahshsh')
+
+    a = np.array([[1,2], [3,4]])
+    # return 20
+    return a
 

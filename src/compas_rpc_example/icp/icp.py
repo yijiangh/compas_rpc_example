@@ -1,8 +1,13 @@
+from itertools import product
 import numpy as np
+from numpy.linalg import norm
 from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.transform import Rotation
+from scipy.optimize import linear_sum_assignment
 
-def nearest_neighbors(point_cloud_A, point_cloud_B):
+NN_ALGS = ['knn', 'hungarian']
+
+def nearest_neighbors(point_cloud_A, point_cloud_B, alg='knn'):
     """Find the nearest (Euclidean) neighbor in point_cloud_B (model) for each
     point in point_cloud_A (data).
 
@@ -22,16 +27,26 @@ def nearest_neighbors(point_cloud_A, point_cloud_B):
         indices in point_cloud_B of each
         point_cloud_A point's nearest neighbor - these are the c_i's
     """
+    assert 3 == point_cloud_A.shape[1] and 3 == point_cloud_B.shape[1]
+    n, m = point_cloud_A.shape[0], point_cloud_B.shape[0]
+    assert n == m
+    distances = np.zeros(n)
+    indices = np.zeros(n)
 
-    distances = np.zeros(point_cloud_A.shape[1])
-    indices = np.zeros(point_cloud_A.shape[1])
-
-    nbrs = NearestNeighbors(n_neighbors=1).fit(point_cloud_B)
-    d, ids = nbrs.kneighbors(point_cloud_A)
+    if alg == 'knn':
+        nbrs = NearestNeighbors(n_neighbors=1).fit(point_cloud_B)
+        d, ids = nbrs.kneighbors(point_cloud_A)
+        distances = np.array(d).flatten()
+        indices = np.array(ids).flatten()
+    elif alg == 'hungarian':
+        cost = np.zeros((n, m))
+        for i, j in product(range(n), range(m)):
+            cost[i,j] = norm(point_cloud_A[i,:]- point_cloud_B[j,:])
+        row_ids, indices = linear_sum_assignment(cost)
+        distances = cost[row_ids, indices]
+    else:
+        raise NotImplementedError('NN algorithm must be one of: {}'.format(NN_ALGS))
     
-    distances = np.array(d).flatten()
-    indices = np.array(ids).flatten()
-
     return distances, indices
 
 
@@ -90,7 +105,7 @@ def least_squares_transform(point_cloud_A, point_cloud_B):
 
 
 def icp(point_cloud_A, point_cloud_B,
-        init_guess=None, max_iterations=20, tolerance=1e-3):
+        init_guess=None, max_iterations=20, tolerance=1e-3, nn_alg='knn'):
     """The Iterative Closest Point algorithm: finds best-fit transform that maps
         point_cloud_A(data) on to point_cloud_B(model)
 
@@ -140,13 +155,13 @@ def icp(point_cloud_A, point_cloud_B,
     num_iters = 0
 
     # Number of dimensions
-    m = 3
+    dim = 3
 
     # Make homogeneous copies of boht point clouds
     point_cloud_Ah = np.ones((4, point_cloud_A.shape[0]))
     point_cloud_Bh = np.ones((4, point_cloud_B.shape[0]))
-    point_cloud_Ah[:m, :] = np.copy(point_cloud_A.T)
-    point_cloud_Bh[:m, :] = np.copy(point_cloud_B.T)
+    point_cloud_Ah[:dim, :] = np.copy(point_cloud_A.T)
+    point_cloud_Bh[:dim, :] = np.copy(point_cloud_B.T)
 
     # assert(point_cloud_A.shape[0] == point_cloud_B.shape[0])
     Ns = point_cloud_A.shape[0]
@@ -163,7 +178,7 @@ def icp(point_cloud_A, point_cloud_B,
         point_cloud_Ah_new = X_BA.dot(point_cloud_Ah)
 
         # given R and t, calculate c
-        indices = nearest_neighbors(point_cloud_Ah_new.T[:,0:m], point_cloud_B)[1]
+        indices = nearest_neighbors(point_cloud_Ah_new.T[:,0:dim], point_cloud_B, alg=nn_alg)[1]
         point_cloud_B_c = np.copy(point_cloud_B[indices])
         
         # transf for next iteration
@@ -186,7 +201,7 @@ def repeat_icp_until_good_fit(point_cloud_A,
                               max_tries,
                               init_guess=None,
                               max_iterations=20,
-                              tolerance=0.001):
+                              tolerance=0.001, nn_alg='knn'):
     """Run ICP until it converges to a "good" fit.
 
     Parameters
@@ -244,7 +259,7 @@ def repeat_icp_until_good_fit(point_cloud_A,
             # print("repeat_ICP exceeds max_iterations, exit.")
             break
         X_BA, mean_error, num_iters = \
-            icp(point_cloud_A, point_cloud_B, init_guess, max_iterations, tolerance)
+            icp(point_cloud_A, point_cloud_B, init_guess, max_iterations, tolerance, nn_alg)
         
         transf_dict[mean_error] = X_BA
         # print("iter %d, mean error %0.8f, inside iters %d \n"%(num_runs, mean_error, num_iters))
